@@ -1,0 +1,131 @@
+import { Landlord, Property, Tenant, MonthlyLedger } from '../types/database';
+
+export const DEMO_LANDLORD: Landlord = {
+  id: '00000000-0000-4000-a000-000000000001',
+  auth_user_id: '00000000-0000-4000-a000-000000000001',
+  full_name: 'Sirisha Amma',
+  phone_number: '+91 98765 43210',
+  upi_id: 'sirisha.amma@upi',
+  preferred_language: 'hi',
+};
+
+export const INITIAL_PROPERTIES: Property[] = [
+  {
+    id: '11111111-1111-4000-a000-000000000001',
+    landlord_id: DEMO_LANDLORD.id,
+    title: 'Sirisha Amma Commercial Complex',
+    property_type: 'shop',
+    address: 'Main Market Road, Commercial Zone',
+  },
+];
+
+export const INITIAL_TENANTS: Tenant[] = [
+  {
+    id: '22222222-2222-4000-a000-000000000001',
+    landlord_id: DEMO_LANDLORD.id,
+    property_id: '11111111-1111-4000-a000-000000000001',
+    full_name: 'Bhagya (Sonu Ladies Corner)',
+    phone_number: '9876501101',
+    unit_no: 'Shop 1',
+    base_rent: 8500,
+    due_day: 1,
+    grace_period_days: 10, // Due by 10th of the month
+    lease_start_date: '2025-09-01',
+    lease_end_date: '2026-08-31', // 25 days remaining!
+    notice_period_months: 2,
+    status: 'active',
+  },
+  {
+    id: '22222222-2222-4000-a000-000000000002',
+    landlord_id: DEMO_LANDLORD.id,
+    property_id: '11111111-1111-4000-a000-000000000001',
+    full_name: 'Arjun (Bike Mechanic Garage)',
+    phone_number: '9876502202',
+    unit_no: 'Shop 2',
+    base_rent: 22000,
+    due_day: 1,
+    grace_period_days: 10,
+    lease_start_date: '2024-04-01',
+    lease_end_date: '2027-03-31',
+    notice_period_months: 2,
+    status: 'active',
+  },
+  {
+    id: '22222222-2222-4000-a000-000000000003',
+    landlord_id: DEMO_LANDLORD.id,
+    property_id: '11111111-1111-4000-a000-000000000001',
+    full_name: 'Lobo (Garment Store)',
+    phone_number: '9876503303',
+    unit_no: 'Shop 3',
+    base_rent: 26000,
+    due_day: 1,
+    grace_period_days: 10,
+    lease_start_date: '2025-01-01',
+    lease_end_date: '2026-12-31',
+    notice_period_months: 2,
+    status: 'notice_given', // 2-month notice period active
+    notice_given_date: '2026-07-15',
+  },
+  {
+    id: '22222222-2222-4000-a000-000000000004',
+    landlord_id: DEMO_LANDLORD.id,
+    property_id: '11111111-1111-4000-a000-000000000001',
+    full_name: 'Shiva (Vegetable Grocery)',
+    phone_number: '9876504404',
+    unit_no: 'Shop 4',
+    base_rent: 7000,
+    due_day: 1,
+    grace_period_days: 10,
+    lease_start_date: '2025-06-01',
+    lease_end_date: '2027-05-31',
+    notice_period_months: 2,
+    status: 'active',
+  },
+];
+
+export const INITIAL_LEDGERS: MonthlyLedger[] = [
+  {
+    id: '33333333-3333-4000-a000-000000000001',
+    landlord_id: DEMO_LANDLORD.id,
+    tenant_id: '22222222-2222-4000-a000-000000000001',
+    month_year: '2026-08',
+    amount_due: 8500,
+    due_date: '2026-08-10',
+    status: 'pending',
+    amount_paid: 0,
+  },
+  {
+    id: '33333333-3333-4000-a000-000000000002',
+    landlord_id: DEMO_LANDLORD.id,
+    tenant_id: '22222222-2222-4000-a000-000000000002',
+    month_year: '2026-08',
+    amount_due: 22000,
+    due_date: '2026-08-10',
+    status: 'overdue',
+    amount_paid: 0,
+    notes: 'Reminded via WhatsApp on 5th August',
+  },
+  {
+    id: '33333333-3333-4000-a000-000000000003',
+    landlord_id: DEMO_LANDLORD.id,
+    tenant_id: '22222222-2222-4000-a000-000000000003',
+    month_year: '2026-08',
+    amount_due: 26000,
+    due_date: '2026-08-10',
+    status: 'paid',
+    amount_paid: 26000,
+    paid_date: '2026-08-02',
+    payment_mode: 'upi',
+    notes: 'Paid via GPay',
+  },
+  {
+    id: '33333333-3333-4000-a000-000000000004',
+    landlord_id: DEMO_LANDLORD.id,
+    tenant_id: '22222222-2222-4000-a000-000000000004',
+    month_year: '2026-08',
+    amount_due: 7000,
+    due_date: '2026-08-10',
+    status: 'pending',
+    amount_paid: 0,
+  },
+];
