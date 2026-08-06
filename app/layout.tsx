@@ -9,13 +9,13 @@ export const metadata: Metadata = {
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'black-translucent',
+    statusBarStyle: 'default',
     title: 'PropertyManager',
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: '#090d16',
+  themeColor: '#ffffff',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -28,10 +28,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body className="antialiased bg-slate-950 text-slate-100 min-h-screen selection:bg-emerald-500 selection:text-slate-950">
+    <html lang="en" className="light">
+      <body className="antialiased bg-[#f5f5f7] text-slate-900 min-h-screen selection:bg-blue-500 selection:text-white">
         <Header />
-        <main className="max-w-md mx-auto min-h-[calc(100vh-8rem)] p-4">
+        <main className="max-w-lg mx-auto min-h-[calc(100vh-8rem)] p-4 sm:p-5">
           {children}
         </main>
         <BottomNav />

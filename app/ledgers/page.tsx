@@ -8,248 +8,186 @@ import {
   Clock, 
   AlertCircle, 
   Filter, 
-  Edit3, 
-  Calendar, 
-  PlusCircle, 
-  TrendingUp, 
-  ShieldCheck,
-  Send,
+  Calendar,
+  MessageCircle,
   Sparkles,
-  AlertTriangle,
-  ArrowRight
+  CreditCard,
+  X
 } from 'lucide-react';
 import { dataService } from '@/lib/services/data-service';
-import { Tenant, MonthlyLedger } from '@/lib/types/database';
-import Link from 'next/link';
+import { MonthlyLedger, Tenant } from '@/lib/types/database';
 
 export default function LedgersPage() {
   const [ledgers, setLedgers] = useState<MonthlyLedger[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState<string>('2026-08');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  
-  // Payment Modal State
-  const [editingLedger, setEditingLedger] = useState<MonthlyLedger | null>(null);
-  const [paidAmount, setPaidAmount] = useState<string>('');
-  const [paymentMode, setPaymentMode] = useState<'upi' | 'cash' | 'bank_transfer' | 'other'>('upi');
-  const [notes, setNotes] = useState('');
-  
-  // Post-payment WhatsApp Alert Trigger Modal
-  const [postPaymentAlert, setPostPaymentAlert] = useState<{ tenant: Tenant; ledger: MonthlyLedger } | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending' | 'overdue'>('all');
+  const [selectedLedger, setSelectedLedger] = useState<MonthlyLedger | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [amountPaidInput, setAmountPaidInput] = useState('');
+  const [paymentModeInput, setPaymentModeInput] = useState<'upi' | 'cash' | 'bank_transfer'>('upi');
+  const [notesInput, setNotesInput] = useState('');
 
   useEffect(() => {
     setLedgers(dataService.getLedgers());
     setTenants(dataService.getTenants());
   }, []);
 
-  const handleOpenPaymentModal = (ledger: MonthlyLedger) => {
-    setEditingLedger(ledger);
-    const totalDue = (ledger.amount_due || 0) + (ledger.late_fee || 0);
-    setPaidAmount(String(totalDue));
-    setNotes(ledger.notes || '');
-  };
-
-  const savePaymentRecord = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingLedger) return;
-
-    const numPaid = Number(paidAmount);
-    const totalRequired = (editingLedger.amount_due || 0) + (editingLedger.late_fee || 0);
-    const isFull = numPaid >= totalRequired;
-    const newStatus = isFull ? 'paid' : numPaid > 0 ? 'partially_paid' : editingLedger.status;
-
-    const updated = dataService.updateLedger(editingLedger.id, {
-      status: newStatus,
-      amount_paid: numPaid,
-      paid_date: new Date().toISOString().split('T')[0],
-      payment_mode: paymentMode,
-      notes: notes,
-    });
-
-    const tenant = tenants.find(t => t.id === editingLedger.tenant_id);
-
-    setLedgers(dataService.getLedgers());
-    setEditingLedger(null);
-
-    // Trigger WhatsApp Next Month Due Alert modal if fully paid
-    if (newStatus === 'paid' && tenant) {
-      setPostPaymentAlert({ tenant, ledger: updated });
-    }
-  };
-
-  const monthLedgers = ledgers.filter(l => l.month_year === selectedMonth);
-
-  const filteredLedgers = monthLedgers.filter(l => {
-    if (filterStatus === 'all') return true;
-    return l.status === filterStatus;
+  const filteredLedgers = ledgers.filter(l => {
+    if (statusFilter === 'all') return true;
+    return l.status === statusFilter;
   });
 
-  // Calculate Metrics
-  const monthTotalDue = monthLedgers.reduce((sum, l) => sum + Number(l.amount_due) + Number(l.late_fee || 0), 0);
-  const monthTotalPaid = monthLedgers.filter(l => l.status === 'paid' || l.status === 'partially_paid').reduce((sum, l) => sum + Number(l.amount_paid), 0);
-  const monthTotalPending = monthTotalDue - monthTotalPaid;
-  const overdueCount = monthLedgers.filter(l => l.status === 'overdue').length;
-  const totalLateFines = monthLedgers.reduce((sum, l) => sum + Number(l.late_fee || 0), 0);
+  const handleOpenPayment = (l: MonthlyLedger) => {
+    setSelectedLedger(l);
+    setAmountPaidInput(String(l.amount_due));
+    setNotesInput(l.notes || '');
+    setShowPaymentModal(true);
+  };
+
+  const handleSavePayment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedLedger) return;
+
+    const paidVal = Number(amountPaidInput);
+    const isFullPaid = paidVal >= selectedLedger.amount_due;
+
+    const updated = dataService.updateLedger(selectedLedger.id, {
+      amount_paid: paidVal,
+      status: isFullPaid ? 'paid' : 'pending',
+      paid_date: new Date().toISOString().split('T')[0],
+      payment_mode: paymentModeInput,
+      notes: notesInput,
+    });
+
+    setLedgers(ledgers.map(l => l.id === selectedLedger.id ? updated : l));
+    setShowPaymentModal(false);
+  };
 
   return (
-    <div className="space-y-4">
-      {/* Header & Month Picker */}
+    <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-bold text-white flex items-center gap-1.5">
-            <BookOpenCheck className="w-5 h-5 text-emerald-400" /> Monthly Ledger Tracker
+          <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <BookOpenCheck className="w-6 h-6 text-blue-600" /> Rent Ledgers
           </h2>
-          <p className="text-xs text-slate-400">Automatic late fines & next month due scheduling</p>
+          <p className="text-sm text-slate-500 font-medium">August 2026 Monthly Rent Cycle</p>
         </div>
 
-        {/* Month Selector */}
-        <select
-          value={selectedMonth}
-          onChange={(e) => setSelectedMonth(e.target.value)}
-          className="px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-bold text-emerald-400 focus:outline-none focus:border-emerald-500"
-        >
-          <option value="2026-08">August 2026</option>
-          <option value="2026-07">July 2026</option>
-          <option value="2026-09">September 2026</option>
-        </select>
-      </div>
-
-      {/* Late Fine & Grace Rule Info Banner */}
-      <div className="glass-card rounded-xl p-3 border border-indigo-500/30 bg-indigo-950/20 space-y-1">
-        <div className="flex items-center space-x-1.5 text-xs font-bold text-indigo-300">
-          <AlertTriangle className="w-4 h-4 text-amber-400" />
-          <span>Late Fine Policy Active (+₹500 / week)</span>
-        </div>
-        <p className="text-[11px] text-slate-300 leading-relaxed">
-          1st week after grace period is buffer. If delay exceeds 7 days past grace date, <strong className="text-amber-300">₹500 fine per week</strong> is automatically added to total payable rent.
-        </p>
-      </div>
-
-      {/* Month Metrics Summary Bar */}
-      <div className="grid grid-cols-3 gap-2">
-        <div className="glass-card rounded-xl p-2.5 border-l-2 border-l-emerald-500">
-          <span className="text-[10px] text-slate-400 block font-semibold">Collected</span>
-          <span className="text-xs font-black text-emerald-400 flex items-center mt-0.5">
-            <IndianRupee className="w-3 h-3" />
-            {monthTotalPaid.toLocaleString('en-IN')}
-          </span>
-        </div>
-
-        <div className="glass-card rounded-xl p-2.5 border-l-2 border-l-amber-500">
-          <span className="text-[10px] text-slate-400 block font-semibold">Pending</span>
-          <span className="text-xs font-black text-amber-400 flex items-center mt-0.5">
-            <IndianRupee className="w-3 h-3" />
-            {monthTotalPending.toLocaleString('en-IN')}
-          </span>
-        </div>
-
-        <div className="glass-card rounded-xl p-2.5 border-l-2 border-l-rose-500">
-          <span className="text-[10px] text-slate-400 block font-semibold">Late Fines</span>
-          <span className="text-xs font-black text-rose-400 flex items-center mt-0.5">
-            +₹{totalLateFines}
+        <div className="text-right">
+          <span className="text-xs text-slate-500 font-semibold block">Active Month</span>
+          <span className="text-sm font-bold text-slate-900 bg-slate-100 border border-slate-200 px-3 py-1 rounded-full">
+            August 2026
           </span>
         </div>
       </div>
 
-      {/* Status Filter Tabs */}
-      <div className="flex items-center justify-between gap-1 p-1 bg-slate-900 rounded-xl border border-slate-800 text-xs font-semibold overflow-x-auto">
-        {['all', 'pending', 'overdue', 'paid', 'partially_paid'].map((status) => (
+      {/* Status Filter Pills */}
+      <div className="flex items-center space-x-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 text-xs sm:text-sm font-bold">
+        {[
+          { id: 'all', label: 'All Ledgers' },
+          { id: 'paid', label: 'Paid' },
+          { id: 'pending', label: 'Pending' },
+          { id: 'overdue', label: 'Overdue' },
+        ].map((tab) => (
           <button
-            key={status}
-            onClick={() => setFilterStatus(status)}
-            className={`px-2.5 py-1 rounded-lg capitalize whitespace-nowrap transition-all ${
-              filterStatus === status
-                ? 'bg-emerald-600 text-slate-950 font-bold shadow-md'
-                : 'text-slate-400 hover:text-white'
+            key={tab.id}
+            onClick={() => setStatusFilter(tab.id as any)}
+            className={`flex-1 py-2 rounded-xl text-center transition-all ${
+              statusFilter === tab.id
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            {status.replace('_', ' ')}
+            {tab.label}
           </button>
         ))}
       </div>
 
       {/* Ledgers List */}
-      <div className="space-y-3">
+      <div className="space-y-4">
         {filteredLedgers.map((l) => {
           const tenant = tenants.find(t => t.id === l.tenant_id);
           const isPaid = l.status === 'paid';
           const isOverdue = l.status === 'overdue';
-          const isPartial = l.status === 'partially_paid';
-          const hasLateFee = (l.late_fee || 0) > 0;
-          const totalPayable = l.amount_due + (l.late_fee || 0);
+          const hasLateFine = Boolean(l.late_fee && l.late_fee > 0);
 
           return (
-            <div key={l.id} className="glass-card glass-card-hover rounded-xl p-4 space-y-3">
+            <div key={l.id} className="glass-card rounded-3xl p-5 border border-slate-200 bg-white space-y-3 shadow-sm">
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-white">{tenant?.full_name || 'Tenant Entry'}</h3>
-                  <p className="text-xs text-slate-400">{tenant?.unit_no || 'Unit'} • Due by {l.due_date}</p>
+                  <div className="flex items-center space-x-2">
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                      {tenant?.unit_no || 'Shop'}
+                    </span>
+
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                        isPaid
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : isOverdue
+                          ? 'bg-red-50 text-red-700 border border-red-200'
+                          : 'bg-amber-50 text-amber-700 border border-amber-200'
+                      }`}
+                    >
+                      {isPaid ? '● Paid' : isOverdue ? '● Overdue' : '● Pending'}
+                    </span>
+                  </div>
+
+                  <h3 className="text-lg font-bold text-slate-900 mt-1">{tenant?.full_name || 'Tenant'}</h3>
                 </div>
 
                 <div className="text-right">
-                  <span className="text-sm font-black text-white flex items-center justify-end">
-                    <IndianRupee className="w-3.5 h-3.5" />
-                    {totalPayable.toLocaleString('en-IN')}
+                  <span className="text-xs text-slate-500 font-semibold block">Base Rent</span>
+                  <span className="text-xl font-black text-slate-900 flex items-center justify-end">
+                    <IndianRupee className="w-5 h-5" /> {l.amount_due.toLocaleString('en-IN')}
                   </span>
-                  
-                  <div className="flex items-center justify-end space-x-1 mt-1">
-                    {hasLateFee && (
-                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                        +₹{l.late_fee} Fine
-                      </span>
-                    )}
-
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                        isPaid
-                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                          : isOverdue
-                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                          : isPartial
-                          ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                          : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                      }`}
-                    >
-                      {isPaid ? (
-                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                      ) : isOverdue ? (
-                        <AlertCircle className="w-3 h-3 text-rose-400" />
-                      ) : (
-                        <Clock className="w-3 h-3 text-amber-400" />
-                      )}
-                      {l.status.replace('_', ' ')}
-                    </span>
-                  </div>
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                <span className="text-slate-400">
-                  Paid: <strong className="text-emerald-400">₹{l.amount_paid}</strong>
+              {/* Late Fine Warning Badge */}
+              {hasLateFine && (
+                <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 font-bold flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <AlertCircle className="w-4 h-4 text-red-600" /> ₹500 Weekly Late Fine Added
+                  </span>
+                  <span className="text-sm font-black">+₹{l.late_fee}</span>
+                </div>
+              )}
+
+              {/* Due Date & Details */}
+              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600 font-medium">
+                <span className="flex items-center gap-1">
+                  <Calendar className="w-4 h-4 text-blue-600" /> Due: {l.due_date}
                 </span>
 
-                <div className="flex items-center space-x-2">
-                  {(isOverdue || !isPaid) && (
-                    <Link
-                      href="/reminders"
-                      className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-emerald-400 font-semibold text-[11px] flex items-center gap-1 hover:bg-slate-800"
-                    >
-                      <Send className="w-3 h-3" />
-                      <span>WhatsApp Overdue</span>
-                    </Link>
-                  )}
+                {l.paid_date && (
+                  <span className="text-emerald-700 font-bold">
+                    Paid on {l.paid_date} ({l.payment_mode?.toUpperCase()})
+                  </span>
+                )}
+              </div>
 
-                  {!isPaid && (
-                    <button
-                      onClick={() => handleOpenPaymentModal(l)}
-                      className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs flex items-center gap-1 shadow-md"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>Record Payment</span>
-                    </button>
-                  )}
-                </div>
+              {/* Action Buttons */}
+              <div className="pt-2 flex items-center justify-between gap-3">
+                <button
+                  onClick={() => handleOpenPayment(l)}
+                  className={`flex-1 py-3 rounded-2xl font-bold text-sm shadow-sm transition-all ${
+                    isPaid
+                      ? 'bg-slate-100 border border-slate-300 text-slate-700 hover:bg-slate-200'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  }`}
+                >
+                  {isPaid ? 'Edit Payment' : 'Record Payment'}
+                </button>
+
+                <a
+                  href="/reminders"
+                  className="px-4 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-sm flex items-center gap-1.5"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>Send Alert</span>
+                </a>
               </div>
             </div>
           );
@@ -257,123 +195,70 @@ export default function LedgersPage() {
       </div>
 
       {/* Record Payment Modal */}
-      {editingLedger && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-          <div className="glass-card rounded-2xl p-5 w-full max-w-sm border border-slate-800 space-y-4">
-            <h3 className="text-base font-bold text-white">Record Rent Payment</h3>
-            
-            <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs space-y-1 text-slate-300">
-              <div className="flex justify-between">
-                <span>Base Rent:</span>
-                <span className="font-semibold text-white">₹{editingLedger.amount_due}</span>
-              </div>
-              {(editingLedger.late_fee || 0) > 0 && (
-                <div className="flex justify-between text-rose-400 font-semibold">
-                  <span>Late Delay Fine (Weekly):</span>
-                  <span>+₹{editingLedger.late_fee}</span>
-                </div>
-              )}
-              <div className="flex justify-between border-t border-slate-800 pt-1 text-emerald-400 font-extrabold text-sm">
-                <span>Total Payable:</span>
-                <span>₹{(editingLedger.amount_due || 0) + (editingLedger.late_fee || 0)}</span>
-              </div>
-            </div>
-
-            <form onSubmit={savePaymentRecord} className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-300 font-medium mb-1">Amount Received (₹)</label>
-                <input
-                  type="number"
-                  value={paidAmount}
-                  onChange={(e) => setPaidAmount(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-emerald-400 font-black text-sm focus:outline-none focus:border-emerald-500"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-300 font-medium mb-1">Payment Method</label>
-                <select
-                  value={paymentMode}
-                  onChange={(e: any) => setPaymentMode(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-emerald-500"
-                >
-                  <option value="upi">UPI (GPay / PhonePe / Paytm)</option>
-                  <option value="cash">Cash</option>
-                  <option value="bank_transfer">Bank Transfer (NEFT/IMPS)</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-slate-300 font-medium mb-1">Notes / Ref</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Received via GPay"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div className="flex items-center space-x-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingLedger(null)}
-                  className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold shadow-md"
-                >
-                  Confirm Paid & Schedule Next
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Post-Payment WhatsApp Receipt & Next Month Alert Trigger Modal */}
-      {postPaymentAlert && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-sm">
-          <div className="glass-card rounded-2xl p-5 w-full max-w-sm border border-emerald-500/40 space-y-4 text-center">
-            <div className="w-12 h-12 mx-auto rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
-              <CheckCircle2 className="w-7 h-7" />
-            </div>
-            
-            <div>
-              <h3 className="text-base font-bold text-white">Payment Recorded Successfully!</h3>
-              <p className="text-xs text-slate-300 mt-1">
-                Next month ledger (<strong className="text-emerald-400">September 2026</strong>) has been scheduled automatically for {postPaymentAlert.tenant.full_name}.
-              </p>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs text-left text-slate-300 space-y-1">
-              <div className="font-semibold text-emerald-400">Automated Next Action:</div>
-              <div>Send payment receipt + advance notice for September rent due on Sep 10th over WhatsApp.</div>
-            </div>
-
-            <div className="space-y-2">
-              <Link
-                href="/reminders"
-                onClick={() => setPostPaymentAlert(null)}
-                className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs flex items-center justify-center space-x-1.5 shadow-lg shadow-emerald-950/60"
-              >
-                <Send className="w-4 h-4" />
-                <span>Send WhatsApp Receipt & Next Month Alert</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-
-              <button
-                onClick={() => setPostPaymentAlert(null)}
-                className="w-full py-2.5 rounded-xl bg-slate-900 text-slate-400 text-xs font-semibold hover:text-white"
-              >
-                Close
+      {showPaymentModal && selectedLedger && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="glass-card rounded-3xl p-6 w-full max-w-md bg-white border border-slate-200 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-lg font-bold text-slate-900">Record Rent Payment</h3>
+              <button onClick={() => setShowPaymentModal(false)} className="p-1 rounded-full text-slate-400 hover:text-slate-700">
+                <X className="w-5 h-5" />
               </button>
             </div>
+
+            <form onSubmit={handleSavePayment} className="space-y-4 text-sm">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Amount Paid (₹)</label>
+                <input
+                  type="number"
+                  required
+                  value={amountPaidInput}
+                  onChange={(e) => setAmountPaidInput(e.target.value)}
+                  className="w-full px-3.5 py-3 rounded-xl border border-slate-300 bg-slate-50 text-slate-900 text-base font-bold focus:outline-none focus:border-blue-600"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Payment Mode</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'upi', label: 'GPay / UPI' },
+                    { id: 'cash', label: 'Cash' },
+                    { id: 'bank_transfer', label: 'Bank Transfer' },
+                  ].map((mode) => (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      onClick={() => setPaymentModeInput(mode.id as any)}
+                      className={`py-2 rounded-xl text-xs font-bold border ${
+                        paymentModeInput === mode.id
+                          ? 'bg-blue-50 border-blue-500 text-blue-700'
+                          : 'bg-slate-50 border-slate-200 text-slate-600'
+                      }`}
+                    >
+                      {mode.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Notes (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Paid via PhonePe"
+                  value={notesInput}
+                  onChange={(e) => setNotesInput(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-slate-900 focus:outline-none focus:border-blue-600"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-base shadow-md mt-2"
+              >
+                Save & Auto-Generate September Ledger
+              </button>
+            </form>
           </div>
         </div>
       )}

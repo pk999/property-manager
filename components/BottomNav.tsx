@@ -18,8 +18,8 @@ export default function BottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-slate-950/95 backdrop-blur-lg border-t border-slate-800/80 px-2 py-1.5">
-      <div className="max-w-md mx-auto flex items-center justify-around">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-t border-slate-200/90 px-3 py-2 shadow-lg">
+      <div className="max-w-lg mx-auto flex items-center justify-around">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
@@ -27,14 +27,14 @@ export default function BottomNav() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center justify-center py-1 px-1.5 rounded-xl transition-all duration-200 min-w-[52px] ${
+              className={`flex flex-col items-center justify-center py-1.5 px-2 rounded-2xl transition-all duration-200 min-w-[56px] ${
                 isActive
-                  ? 'text-emerald-400 bg-emerald-950/40 font-bold scale-105'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'text-blue-600 bg-blue-50 font-bold scale-105'
+                  : 'text-slate-500 hover:text-slate-900'
               }`}
             >
-              <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-400' : 'text-slate-400'}`} />
-              <span className="text-[9px] mt-1 tracking-tight">{item.label}</span>
+              <Icon className={`w-5 h-5 ${isActive ? 'text-blue-600' : 'text-slate-500'}`} />
+              <span className="text-xs mt-1 font-semibold tracking-tight">{item.label}</span>
             </Link>
           );
         })}

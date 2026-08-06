@@ -3,45 +3,45 @@
 @import "tailwindcss/utilities";
 
 :root {
-  --background: #090d16;
-  --foreground: #f8fafc;
+  --background: #f5f5f7;
+  --foreground: #1d1d1f;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   min-height: 100vh;
-  padding-bottom: 5rem; /* space for fixed bottom navigation */
+  padding-bottom: 6rem; /* extra space for mobile bottom bar */
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Glassmorphism utility cards */
+/* Apple-style minimalist white cards */
 .glass-card {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.04), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
 }
 
 .glass-card-hover {
-  transition: all 0.2s ease-in-out;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .glass-card-hover:hover {
-  border-color: rgba(34, 197, 94, 0.4);
-  transform: translateY(-2px);
+  border-color: rgba(0, 113, 227, 0.3);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
 }
 
 /* Custom scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #090d16;
+  background: #f5f5f7;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: #d1d1d6;
   border-radius: 4px;
 }
