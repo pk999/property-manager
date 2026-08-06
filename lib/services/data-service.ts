@@ -2,10 +2,10 @@ import { Landlord, Property, Tenant, MonthlyLedger } from '../types/database';
 import { DEMO_LANDLORD, INITIAL_PROPERTIES, INITIAL_TENANTS, INITIAL_LEDGERS } from '../storage/mock-db';
 
 const STORAGE_KEYS = {
-  LANDLORD: 'pm_landlord_profile_v4',
-  PROPERTIES: 'pm_properties_v4',
-  TENANTS: 'pm_tenants_v4',
-  LEDGERS: 'pm_ledgers_v4',
+  LANDLORD: 'pm_landlord_profile_v5',
+  PROPERTIES: 'pm_properties_v5',
+  TENANTS: 'pm_tenants_v5',
+  LEDGERS: 'pm_ledgers_v5',
 };
 
 class DataService {
@@ -191,7 +191,7 @@ class DataService {
       year += 1;
     }
 
-    // For Month M+1 (e.g., September 2026 rent), due date is Month M+2 (10th October 2026)!
+    // September rent due on 10th October!
     let dueMonth = month + 1;
     let dueYear = year;
     if (dueMonth > 12) {
