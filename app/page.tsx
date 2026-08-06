@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { dataService } from '@/lib/services/data-service';
 import { Property, Tenant, MonthlyLedger } from '@/lib/types/database';
+import SupabaseConnectionVerifier from '@/components/SupabaseConnectionVerifier';
 
 export default function Dashboard() {
   const [properties, setProperties] = useState<Property[]>([]);
@@ -47,18 +48,21 @@ export default function Dashboard() {
         <div className="relative z-10 space-y-2">
           <div className="flex items-center space-x-2">
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
-              <Sparkles className="w-3 h-3" /> Zero-Cost PWA Active
+              <Sparkles className="w-3 h-3" /> PWA Active
             </span>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1">
               <ShieldCheck className="w-3 h-3" /> IDOR Shielded
             </span>
           </div>
-          <h2 className="text-xl font-extrabold text-white">August 2026 Ledger Overview</h2>
+          <h2 className="text-xl font-extrabold text-white">Sirisha Amma's Dashboard</h2>
           <p className="text-xs text-slate-300">
-            Track shops, houses, due dates, notice periods & 1-click WhatsApp reminders.
+            Sirisha Amma Commercial Complex • Shops, Ledgers & 1-Click WhatsApp
           </p>
         </div>
       </div>
+
+      {/* Supabase PostgreSQL Diagnostics Verifier Card */}
+      <SupabaseConnectionVerifier />
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-2 gap-3">
@@ -138,7 +142,7 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <h4 className="text-xs font-bold text-white">{p.title}</h4>
-                    <p className="text-[11px] text-slate-400">{p.address || 'Jaipur, Rajasthan'}</p>
+                    <p className="text-[11px] text-slate-400">{p.address || 'Commercial Zone'}</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -149,17 +153,6 @@ export default function Dashboard() {
             );
           })}
         </div>
-      </div>
-
-      {/* Security Protection Verification Status Card */}
-      <div className="glass-card rounded-xl p-3.5 border border-indigo-500/20 bg-indigo-950/10 space-y-2">
-        <div className="flex items-center space-x-2 text-indigo-400">
-          <ShieldCheck className="w-4 h-4" />
-          <h4 className="text-xs font-bold">Phase 0 Security Verification Passed</h4>
-        </div>
-        <p className="text-[11px] text-slate-300 leading-relaxed">
-          PostgreSQL RLS policies, 128-bit UUID v4 isolation, parameterized SQL statements, and Zod input length limiters are actively enforced.
-        </p>
       </div>
     </div>
   );
