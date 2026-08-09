@@ -2,11 +2,23 @@ import { Landlord, Property, Tenant, MonthlyLedger } from '../types/database';
 import { DEMO_LANDLORD, INITIAL_PROPERTIES, INITIAL_TENANTS, INITIAL_LEDGERS } from '../storage/mock-db';
 
 const STORAGE_KEYS = {
-  LANDLORD: 'pm_landlord_profile_v5',
-  PROPERTIES: 'pm_properties_v5',
-  TENANTS: 'pm_tenants_v5',
-  LEDGERS: 'pm_ledgers_v5',
+  LANDLORD: 'pm_landlord_profile_v6',
+  PROPERTIES: 'pm_properties_v6',
+  TENANTS: 'pm_tenants_v6',
+  LEDGERS: 'pm_ledgers_v6',
 };
+
+export class QuotaExceededError extends Error {
+  quotaType: 'property_limit' | 'tenant_limit';
+  limit: number;
+
+  constructor(message: string, quotaType: 'property_limit' | 'tenant_limit', limit: number) {
+    super(message);
+    this.name = 'QuotaExceededError';
+    this.quotaType = quotaType;
+    this.limit = limit;
+  }
+}
 
 class DataService {
   private isBrowser(): boolean {
@@ -50,26 +62,37 @@ class DataService {
   }
 
   // --- PROPERTIES ---
-  getProperties(): Property[] {
+  getProperties(includeInactive: boolean = true): Property[] {
     if (!this.isBrowser()) return INITIAL_PROPERTIES;
     const stored = localStorage.getItem(STORAGE_KEYS.PROPERTIES);
+    let properties: Property[] = [];
     if (!stored) {
-      localStorage.setItem(STORAGE_KEYS.PROPERTIES, JSON.stringify(INITIAL_PROPERTIES));
-      return INITIAL_PROPERTIES;
+      properties = INITIAL_PROPERTIES;
+      localStorage.setItem(STORAGE_KEYS.PROPERTIES, JSON.stringify(properties));
+    } else {
+      properties = JSON.parse(stored);
     }
-    return JSON.parse(stored);
+    return includeInactive ? properties : properties.filter(p => p.status !== 'inactive');
   }
 
   addProperty(property: Omit<Property, 'id' | 'landlord_id' | 'created_at'>): Property {
-    const properties = this.getProperties();
-    if (properties.length >= 200) {
-      throw new Error("Property limit (200) reached for zero-cost quota guard.");
-    }
     const landlord = this.getLandlord();
+    const properties = this.getProperties(true);
+    
+    // FREEMIUM RULE: Free tier allows max 2 properties unless Pro member
+    if (!landlord.is_pro_member && properties.length >= 2) {
+      throw new QuotaExceededError(
+        "Free tier is limited to up to 2 properties. Upgrade to Pro for unlimited properties!",
+        'property_limit',
+        2
+      );
+    }
+
     const newProperty: Property = {
       ...property,
       id: crypto.randomUUID(),
       landlord_id: landlord.id,
+      status: 'active',
       created_at: new Date().toISOString(),
     };
     const updated = [newProperty, ...properties];
@@ -79,30 +102,79 @@ class DataService {
     return newProperty;
   }
 
-  // --- TENANTS ---
-  getTenants(): Tenant[] {
-    if (!this.isBrowser()) return INITIAL_TENANTS;
-    const stored = localStorage.getItem(STORAGE_KEYS.TENANTS);
-    if (!stored) {
-      localStorage.setItem(STORAGE_KEYS.TENANTS, JSON.stringify(INITIAL_TENANTS));
-      return INITIAL_TENANTS;
+  togglePropertyStatus(id: string): Property {
+    const properties = this.getProperties(true);
+    const index = properties.findIndex(p => p.id === id);
+    if (index === -1) throw new Error("Property not found");
+
+    const current = properties[index];
+    const newStatus = current.status === 'inactive' ? 'active' : 'inactive';
+    const updated = { ...current, status: newStatus as 'active' | 'inactive' };
+    properties[index] = updated;
+
+    if (this.isBrowser()) {
+      localStorage.setItem(STORAGE_KEYS.PROPERTIES, JSON.stringify(properties));
     }
-    return JSON.parse(stored);
+    return updated;
+  }
+
+  deleteProperty(id: string, archiveLinkedTenants: boolean = true): void {
+    const properties = this.getProperties(true);
+    const filtered = properties.filter(p => p.id !== id);
+
+    if (archiveLinkedTenants) {
+      const tenants = this.getTenants(true);
+      const updatedTenants = tenants.map(t => {
+        if (t.property_id === id) {
+          return { ...t, status: 'archived' as const, deleted_at: new Date().toISOString() };
+        }
+        return t;
+      });
+      if (this.isBrowser()) {
+        localStorage.setItem(STORAGE_KEYS.TENANTS, JSON.stringify(updatedTenants));
+      }
+    }
+
+    if (this.isBrowser()) {
+      localStorage.setItem(STORAGE_KEYS.PROPERTIES, JSON.stringify(filtered));
+    }
+  }
+
+  // --- TENANTS ---
+  getTenants(includeArchived: boolean = false): Tenant[] {
+    if (!this.isBrowser()) return includeArchived ? INITIAL_TENANTS : INITIAL_TENANTS.filter(t => t.status !== 'archived');
+    const stored = localStorage.getItem(STORAGE_KEYS.TENANTS);
+    let tenants: Tenant[] = [];
+    if (!stored) {
+      tenants = INITIAL_TENANTS;
+      localStorage.setItem(STORAGE_KEYS.TENANTS, JSON.stringify(tenants));
+    } else {
+      tenants = JSON.parse(stored);
+    }
+    return includeArchived ? tenants : tenants.filter(t => t.status !== 'archived');
   }
 
   addTenant(tenant: Omit<Tenant, 'id' | 'landlord_id' | 'created_at'>): Tenant {
-    const tenants = this.getTenants();
-    if (tenants.length >= 1000) {
-      throw new Error("Tenant limit (1,000) reached for zero-cost quota guard.");
-    }
     const landlord = this.getLandlord();
+    const allTenants = this.getTenants(true);
+    const activePropertyTenants = allTenants.filter(t => t.property_id === tenant.property_id && t.status !== 'archived');
+
+    // FREEMIUM RULE: Free tier allows max 3 tenants per property unless Pro member
+    if (!landlord.is_pro_member && activePropertyTenants.length >= 3) {
+      throw new QuotaExceededError(
+        "Free tier is limited to up to 3 tenants per property. Upgrade to Pro for unlimited shops!",
+        'tenant_limit',
+        3
+      );
+    }
+
     const newTenant: Tenant = {
       ...tenant,
       id: crypto.randomUUID(),
       landlord_id: landlord.id,
       created_at: new Date().toISOString(),
     };
-    const updated = [newTenant, ...tenants];
+    const updated = [newTenant, ...allTenants];
     if (this.isBrowser()) {
       localStorage.setItem(STORAGE_KEYS.TENANTS, JSON.stringify(updated));
     }
@@ -112,7 +184,7 @@ class DataService {
   }
 
   updateTenant(id: string, updates: Partial<Tenant>): Tenant {
-    const tenants = this.getTenants();
+    const tenants = this.getTenants(true);
     const index = tenants.findIndex(t => t.id === id);
     if (index === -1) throw new Error("Tenant not found or access denied.");
     
@@ -127,6 +199,34 @@ class DataService {
       localStorage.setItem(STORAGE_KEYS.TENANTS, JSON.stringify(tenants));
     }
     return updatedTenant;
+  }
+
+  archiveTenant(id: string): Tenant {
+    return this.updateTenant(id, {
+      status: 'archived',
+      deleted_at: new Date().toISOString(),
+    });
+  }
+
+  reinstateTenant(id: string, newPropertyId: string, newUnitNo: string, newRent: number): Tenant {
+    const landlord = this.getLandlord();
+    const activeTenants = this.getTenants(false).filter(t => t.property_id === newPropertyId);
+
+    if (!landlord.is_pro_member && activeTenants.length >= 3) {
+      throw new QuotaExceededError(
+        "Cannot reinstate. Selected property has reached the 3 tenant free tier limit. Upgrade to Pro!",
+        'tenant_limit',
+        3
+      );
+    }
+
+    return this.updateTenant(id, {
+      status: 'active',
+      property_id: newPropertyId,
+      unit_no: newUnitNo,
+      base_rent: newRent,
+      deleted_at: undefined,
+    });
   }
 
   // --- MONTHLY LEDGERS ---
@@ -152,6 +252,11 @@ class DataService {
     });
   }
 
+  getTenantLedgerHistory(tenantId: string): MonthlyLedger[] {
+    const ledgers = this.getLedgers();
+    return ledgers.filter(l => l.tenant_id === tenantId);
+  }
+
   updateLedger(id: string, updates: Partial<MonthlyLedger>): MonthlyLedger {
     const ledgers = this.getLedgers();
     const index = ledgers.findIndex(l => l.id === id);
@@ -172,9 +277,9 @@ class DataService {
 
     // AUTO-SCHEDULE NEXT MONTH LEDGER ON PAYMENT COMPLETION
     if (updates.status === 'paid') {
-      const tenants = this.getTenants();
+      const tenants = this.getTenants(true);
       const tenant = tenants.find(t => t.id === targetLedger.tenant_id);
-      if (tenant) {
+      if (tenant && tenant.status !== 'archived') {
         this.generateNextMonthLedgerForTenant(tenant, targetLedger.month_year);
       }
     }
