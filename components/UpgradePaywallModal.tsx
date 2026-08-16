@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Sparkles, ShieldCheck, Zap, X, CheckCircle2, Coffee } from 'lucide-react';
+import { Sparkles, ShieldCheck, Zap, X, CheckCircle2 } from 'lucide-react';
 import { dataService } from '@/lib/services/data-service';
 
 interface UpgradePaywallModalProps {
@@ -18,7 +18,7 @@ export default function UpgradePaywallModal({ isOpen, onClose, reason }: Upgrade
   const upiCheckoutUrl = `upi://pay?pa=${encodeURIComponent(upiId)}&am=999&pn=${encodeURIComponent('PropertyManager Pro')}&cu=INR`;
 
   const handleUpgradeViaUPI = () => {
-    // Attempt opening mobile UPI payment deep link
+    // Launch mobile UPI payment deep link
     window.location.href = upiCheckoutUrl;
 
     // Simulate instant Pro upgrade
@@ -41,12 +41,12 @@ export default function UpgradePaywallModal({ isOpen, onClose, reason }: Upgrade
         </button>
 
         <div className="text-center space-y-2.5 pt-1">
-          <div className="w-16 h-16 rounded-3xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center mx-auto shadow-md">
-            <Coffee className="w-8 h-8" />
+          <div className="w-16 h-16 rounded-3xl bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center mx-auto shadow-md">
+            <Sparkles className="w-8 h-8" />
           </div>
 
-          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-900 uppercase tracking-wider">
-            ☕ The Chai Subscription Model
+          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-black bg-blue-100 text-blue-900 uppercase tracking-wider">
+            💎 PropertyManager Pro
           </span>
 
           <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900 leading-tight">
@@ -54,7 +54,7 @@ export default function UpgradePaywallModal({ isOpen, onClose, reason }: Upgrade
           </h3>
 
           <p className="text-base text-slate-700 font-medium leading-relaxed">
-            Less than what you spend on your morning Chai. For just <strong>₹999/year</strong>, completely automate your rent collection and stop chasing payments.
+            For just <strong>₹999/year</strong>, completely automate your rent collection, generate instant WhatsApp statements, and stop chasing payments.
           </p>
         </div>
 
@@ -70,7 +70,7 @@ export default function UpgradePaywallModal({ isOpen, onClose, reason }: Upgrade
           </div>
           <div className="flex items-center space-x-2.5">
             <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-            <span>1-Tap Autonomous WhatsApp Reminders & Direct UPI</span>
+            <span>1-Tap Autonomous WhatsApp Statements & Direct UPI</span>
           </div>
         </div>
 
@@ -90,7 +90,7 @@ export default function UpgradePaywallModal({ isOpen, onClose, reason }: Upgrade
             className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-lg shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 transition-all min-h-[56px]"
           >
             <Zap className="w-6 h-6" />
-            <span>Upgrade via UPI (₹999/Year)</span>
+            <span>Upgrade to Pro via UPI (₹999/Year)</span>
           </button>
 
           <button

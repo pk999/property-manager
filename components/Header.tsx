@@ -2,11 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Building2, ShieldCheck, User, Building, FileText, Settings, Sparkles, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Building2, ShieldCheck, User, Building, FileText, Settings, Sparkles, X, LogOut, Phone } from 'lucide-react';
 import { dataService } from '@/lib/services/data-service';
 import { Landlord } from '@/lib/types/database';
 
 export default function Header() {
+  const router = useRouter();
   const [landlord, setLandlord] = useState<Landlord | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showUpiModal, setShowUpiModal] = useState(false);
@@ -27,14 +29,19 @@ export default function Header() {
     alert("✓ Landlord UPI ID updated successfully!");
   };
 
+  const handleSignOut = () => {
+    setMenuOpen(false);
+    router.push('/auth');
+  };
+
   return (
     <>
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 py-3.5 shadow-sm">
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 py-3 shadow-sm">
         <div className="max-w-lg mx-auto flex items-center justify-between">
           {/* Brand Logo & Name */}
           <Link href="/" className="flex items-center space-x-3">
-            <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center shadow-md shadow-blue-500/20 text-white font-black">
-              <Building2 className="w-7 h-7" />
+            <div className="w-11 h-11 rounded-2xl bg-blue-600 flex items-center justify-center shadow-md shadow-blue-500/20 text-white font-black">
+              <Building2 className="w-6 h-6" />
             </div>
             <div>
               <div className="flex items-center space-x-2">
@@ -44,12 +51,12 @@ export default function Header() {
                     PRO
                   </span>
                 ) : (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
                     FREE (1 Prop)
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-600 font-semibold">{landlord?.full_name || 'Sirisha Amma'} • Agent Active</p>
+              <p className="text-xs text-slate-600 font-semibold">{landlord?.full_name || 'Sirisha Amma'}</p>
             </div>
           </Link>
 
@@ -57,14 +64,14 @@ export default function Header() {
           <div className="relative">
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="p-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-bold text-xs flex items-center gap-1.5 min-h-[48px]"
+              className="p-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-bold text-xs flex items-center gap-1.5 min-h-[44px]"
               title="Menu & Settings"
             >
               <Settings className="w-5 h-5 text-blue-600" />
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 z-50 text-slate-900 text-sm font-semibold space-y-1">
+              <div className="absolute right-0 mt-2 w-60 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 z-50 text-slate-900 text-sm font-semibold space-y-1">
                 <button
                   onClick={() => {
                     setMenuOpen(false);
@@ -73,7 +80,7 @@ export default function Header() {
                   className="w-full p-2.5 rounded-xl hover:bg-blue-50 text-left flex items-center space-x-2 text-slate-800 font-bold"
                 >
                   <Sparkles className="w-4 h-4 text-emerald-600" />
-                  <span>Landlord UPI Settings</span>
+                  <span>Landlord Direct UPI Settings</span>
                 </button>
 
                 <Link
@@ -93,6 +100,16 @@ export default function Header() {
                   <FileText className="w-4 h-4 text-amber-600" />
                   <span>Lease & Notice Manager</span>
                 </Link>
+
+                <div className="border-t border-slate-100 pt-1">
+                  <button
+                    onClick={handleSignOut}
+                    className="w-full p-2.5 rounded-xl hover:bg-red-50 text-left flex items-center space-x-2 text-red-600 font-bold"
+                  >
+                    <LogOut className="w-4 h-4 text-red-600" />
+                    <span>Sign Out / Switch Number</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>
