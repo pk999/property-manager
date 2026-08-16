@@ -2,17 +2,17 @@ import { Landlord, Property, Tenant, MonthlyLedger } from '../types/database';
 import { DEMO_LANDLORD, INITIAL_PROPERTIES, INITIAL_TENANTS, INITIAL_LEDGERS } from '../storage/mock-db';
 
 const STORAGE_KEYS = {
-  LANDLORD: 'pm_landlord_profile_v6',
-  PROPERTIES: 'pm_properties_v6',
-  TENANTS: 'pm_tenants_v6',
-  LEDGERS: 'pm_ledgers_v6',
+  LANDLORD: 'pm_landlord_profile_v7',
+  PROPERTIES: 'pm_properties_v7',
+  TENANTS: 'pm_tenants_v7',
+  LEDGERS: 'pm_ledgers_v7',
 };
 
 export class QuotaExceededError extends Error {
-  quotaType: 'property_limit' | 'tenant_limit';
+  quotaType: 'property_limit' | 'unit_limit';
   limit: number;
 
-  constructor(message: string, quotaType: 'property_limit' | 'tenant_limit', limit: number) {
+  constructor(message: string, quotaType: 'property_limit' | 'unit_limit', limit: number) {
     super(message);
     this.name = 'QuotaExceededError';
     this.quotaType = quotaType;
@@ -79,12 +79,12 @@ class DataService {
     const landlord = this.getLandlord();
     const properties = this.getProperties(true);
     
-    // FREEMIUM RULE: Free tier allows max 2 properties unless Pro member
-    if (!landlord.is_pro_member && properties.length >= 2) {
+    // "CHAI" FREEMIUM RULE: Free tier allows max 1 property (up to 4 units) unless Pro member
+    if (!landlord.is_pro_member && properties.length >= 1) {
       throw new QuotaExceededError(
-        "Free tier is limited to up to 2 properties. Upgrade to Pro for unlimited properties!",
+        "Less than what you spend on your morning Chai. For just ₹999/year, unlock unlimited properties & full automation!",
         'property_limit',
-        2
+        1
       );
     }
 
@@ -140,7 +140,7 @@ class DataService {
     }
   }
 
-  // --- TENANTS ---
+  // --- TENANTS & STRICT 1-TO-1 MAPPING ---
   getTenants(includeArchived: boolean = false): Tenant[] {
     if (!this.isBrowser()) return includeArchived ? INITIAL_TENANTS : INITIAL_TENANTS.filter(t => t.status !== 'archived');
     const stored = localStorage.getItem(STORAGE_KEYS.TENANTS);
@@ -157,14 +157,24 @@ class DataService {
   addTenant(tenant: Omit<Tenant, 'id' | 'landlord_id' | 'created_at'>): Tenant {
     const landlord = this.getLandlord();
     const allTenants = this.getTenants(true);
-    const activePropertyTenants = allTenants.filter(t => t.property_id === tenant.property_id && t.status !== 'archived');
+    const activeTenants = allTenants.filter(t => t.status !== 'archived');
 
-    // FREEMIUM RULE: Free tier allows max 3 tenants per property unless Pro member
-    if (!landlord.is_pro_member && activePropertyTenants.length >= 3) {
+    // 1. "CHAI" FREEMIUM RULE: Free tier allows max 4 active units total
+    if (!landlord.is_pro_member && activeTenants.length >= 4) {
       throw new QuotaExceededError(
-        "Free tier is limited to up to 3 tenants per property. Upgrade to Pro for unlimited shops!",
-        'tenant_limit',
-        3
+        "Less than what you spend on your morning Chai. For just ₹999/year, unlock unlimited units & automated WhatsApp reminders!",
+        'unit_limit',
+        4
+      );
+    }
+
+    // 2. STRICT 1-TO-1 UNIT MAPPING: Prevent stacking multiple tenants under the same property unit
+    const existingUnitTenant = activeTenants.find(
+      t => t.property_id === tenant.property_id && t.unit_no.toLowerCase().trim() === tenant.unit_no.toLowerCase().trim()
+    );
+    if (existingUnitTenant) {
+      throw new Error(
+        `Unit "${tenant.unit_no}" is already occupied by ${existingUnitTenant.full_name}. Strict 1-to-1 unit mapping enforced!`
       );
     }
 
@@ -193,6 +203,17 @@ class DataService {
       throw new Error("Security Violation: Access denied to tenant record.");
     }
 
+    // STRICT 1-TO-1 MAPPING CHECK IF UNIT_NO IS CHANGED
+    if (updates.unit_no && updates.unit_no !== tenants[index].unit_no) {
+      const propId = updates.property_id || tenants[index].property_id;
+      const occupied = tenants.find(
+        t => t.id !== id && t.status !== 'archived' && t.property_id === propId && t.unit_no.toLowerCase().trim() === updates.unit_no!.toLowerCase().trim()
+      );
+      if (occupied) {
+        throw new Error(`Unit "${updates.unit_no}" is already occupied by ${occupied.full_name}.`);
+      }
+    }
+
     const updatedTenant = { ...tenants[index], ...updates };
     tenants[index] = updatedTenant;
     if (this.isBrowser()) {
@@ -210,14 +231,23 @@ class DataService {
 
   reinstateTenant(id: string, newPropertyId: string, newUnitNo: string, newRent: number): Tenant {
     const landlord = this.getLandlord();
-    const activeTenants = this.getTenants(false).filter(t => t.property_id === newPropertyId);
+    const activeTenants = this.getTenants(false);
 
-    if (!landlord.is_pro_member && activeTenants.length >= 3) {
+    // "CHAI" FREEMIUM RULE
+    if (!landlord.is_pro_member && activeTenants.length >= 4) {
       throw new QuotaExceededError(
-        "Cannot reinstate. Selected property has reached the 3 tenant free tier limit. Upgrade to Pro!",
-        'tenant_limit',
-        3
+        "Cannot reinstate tenant. Free tier is limited to 4 units total. Upgrade to Pro for ₹999/year!",
+        'unit_limit',
+        4
       );
+    }
+
+    // STRICT 1-TO-1 MAPPING CHECK
+    const occupied = activeTenants.find(
+      t => t.id !== id && t.property_id === newPropertyId && t.unit_no.toLowerCase().trim() === newUnitNo.toLowerCase().trim()
+    );
+    if (occupied) {
+      throw new Error(`Cannot reinstate. Unit "${newUnitNo}" is currently occupied by ${occupied.full_name}.`);
     }
 
     return this.updateTenant(id, {
@@ -229,14 +259,20 @@ class DataService {
     });
   }
 
-  // --- MONTHLY LEDGERS ---
+  // --- MONTHLY LEDGERS & PARTIAL PAYMENT MATH ---
   getLedgers(): MonthlyLedger[] {
     if (!this.isBrowser()) return INITIAL_LEDGERS;
     const stored = localStorage.getItem(STORAGE_KEYS.LEDGERS);
     if (!stored) {
       const initialized = INITIAL_LEDGERS.map(l => {
-        const { lateFee, totalPayable } = this.calculateLateFee(l.due_date, l.amount_due);
-        return { ...l, late_fee: lateFee, total_payable: totalPayable };
+        const { lateFee } = this.calculateLateFee(l.due_date, l.amount_due);
+        const total = l.amount_due + lateFee;
+        const paid = l.amount_paid || 0;
+        const balance = Math.max(0, total - paid);
+        let status = l.status;
+        if (paid >= total) status = 'paid';
+        else if (paid > 0) status = 'partial';
+        return { ...l, late_fee: lateFee, total_payable: total, amount_paid: paid, balance_due: balance, status };
       });
       localStorage.setItem(STORAGE_KEYS.LEDGERS, JSON.stringify(initialized));
       return initialized;
@@ -244,11 +280,30 @@ class DataService {
 
     const ledgers: MonthlyLedger[] = JSON.parse(stored);
     return ledgers.map(l => {
-      if (l.status === 'overdue' || l.status === 'pending') {
-        const { lateFee, totalPayable } = this.calculateLateFee(l.due_date, l.amount_due);
-        return { ...l, late_fee: lateFee, total_payable: totalPayable };
+      const { lateFee } = this.calculateLateFee(l.due_date, l.amount_due);
+      const total = l.amount_due + (l.status === 'paid' ? (l.late_fee || 0) : lateFee);
+      const paid = l.amount_paid || 0;
+      const balance = Math.max(0, total - paid);
+      let status = l.status;
+      
+      if (paid >= total) {
+        status = 'paid';
+      } else if (paid > 0) {
+        status = 'partial';
+      } else {
+        const today = new Date('2026-08-20');
+        const due = new Date(l.due_date);
+        status = today > due ? 'overdue' : 'pending';
       }
-      return { ...l, total_payable: l.amount_due + (l.late_fee || 0) };
+
+      return {
+        ...l,
+        late_fee: lateFee,
+        total_payable: total,
+        amount_paid: paid,
+        balance_due: balance,
+        status,
+      };
     });
   }
 
@@ -268,15 +323,39 @@ class DataService {
     }
 
     const targetLedger = ledgers[index];
-    const updatedLedger = { ...targetLedger, ...updates };
+    const newAmountPaid = updates.amount_paid !== undefined ? updates.amount_paid : targetLedger.amount_paid;
+    const lateFee = targetLedger.late_fee || 0;
+    const totalPayable = targetLedger.amount_due + lateFee;
+    const newBalance = Math.max(0, totalPayable - newAmountPaid);
+
+    let newStatus: MonthlyLedger['status'] = targetLedger.status;
+    if (newAmountPaid >= totalPayable) {
+      newStatus = 'paid';
+    } else if (newAmountPaid > 0) {
+      newStatus = 'partial';
+    } else {
+      const today = new Date('2026-08-20');
+      const due = new Date(targetLedger.due_date);
+      newStatus = today > due ? 'overdue' : 'pending';
+    }
+
+    const updatedLedger: MonthlyLedger = {
+      ...targetLedger,
+      ...updates,
+      amount_paid: newAmountPaid,
+      balance_due: newBalance,
+      total_payable: totalPayable,
+      status: newStatus,
+    };
+
     ledgers[index] = updatedLedger;
 
     if (this.isBrowser()) {
       localStorage.setItem(STORAGE_KEYS.LEDGERS, JSON.stringify(ledgers));
     }
 
-    // AUTO-SCHEDULE NEXT MONTH LEDGER ON PAYMENT COMPLETION
-    if (updates.status === 'paid') {
+    // AUTO-SCHEDULE NEXT MONTH LEDGER ON FULL PAYMENT COMPLETION
+    if (newStatus === 'paid') {
       const tenants = this.getTenants(true);
       const tenant = tenants.find(t => t.id === targetLedger.tenant_id);
       if (tenant && tenant.status !== 'archived') {
@@ -318,10 +397,11 @@ class DataService {
       month_year: nextMonthYear,
       amount_due: tenant.base_rent,
       late_fee: 0,
+      amount_paid: 0,
+      balance_due: tenant.base_rent,
       total_payable: tenant.base_rent,
       due_date: nextDueDate,
       status: 'pending',
-      amount_paid: 0,
       created_at: new Date().toISOString(),
     };
 
@@ -350,10 +430,11 @@ class DataService {
       month_year: currentMonthYear,
       amount_due: tenant.base_rent,
       late_fee: 0,
+      amount_paid: 0,
+      balance_due: tenant.base_rent,
       total_payable: tenant.base_rent,
       due_date: dueDateStr,
       status: 'pending',
-      amount_paid: 0,
       created_at: new Date().toISOString(),
     };
 

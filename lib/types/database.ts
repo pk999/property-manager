@@ -2,7 +2,7 @@ export type PropertyType = 'shop' | 'residential';
 
 export type TenantStatus = 'active' | 'notice_given' | 'archived';
 
-export type LedgerStatus = 'pending' | 'paid' | 'overdue';
+export type LedgerStatus = 'pending' | 'paid' | 'overdue' | 'partial';
 
 export type PaymentMode = 'cash' | 'upi' | 'bank_transfer' | 'cheque';
 
@@ -54,10 +54,11 @@ export interface MonthlyLedger {
   month_year: string; // YYYY-MM e.g. '2026-08'
   amount_due: number;
   late_fee?: number;
+  amount_paid: number;
+  balance_due: number;
   total_payable?: number;
   due_date: string; // YYYY-MM-DD e.g. '2026-08-10'
   status: LedgerStatus;
-  amount_paid: number;
   paid_date?: string;
   payment_mode?: PaymentMode;
   notes?: string;

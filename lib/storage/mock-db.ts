@@ -7,6 +7,7 @@ export const DEMO_LANDLORD: Landlord = {
   phone_number: '+91 98765 43210',
   upi_id: 'sirisha.amma@upi',
   preferred_language: 'hi',
+  is_pro_member: false, // Default Free Tier ("Chai" Model: 1 property, 4 units)
 };
 
 export const INITIAL_PROPERTIES: Property[] = [
@@ -16,6 +17,7 @@ export const INITIAL_PROPERTIES: Property[] = [
     title: 'Sirisha Amma Commercial Complex',
     property_type: 'shop',
     address: 'Main Market Road, Commercial Zone',
+    status: 'active',
   },
 ];
 
@@ -93,6 +95,7 @@ export const INITIAL_LEDGERS: MonthlyLedger[] = [
     due_date: '2026-08-10',
     status: 'pending',
     amount_paid: 0,
+    balance_due: 8500,
   },
   {
     id: '33333333-3333-4000-a000-000000000002',
@@ -101,9 +104,11 @@ export const INITIAL_LEDGERS: MonthlyLedger[] = [
     month_year: '2026-08',
     amount_due: 22000,
     due_date: '2026-08-10',
-    status: 'overdue',
-    amount_paid: 0,
-    notes: 'Reminded via WhatsApp',
+    status: 'partial',
+    amount_paid: 10000,
+    balance_due: 12500, // 22000 + 500 late fee - 10000 paid
+    late_fee: 500,
+    notes: 'Paid ₹10,000 via PhonePe on 12th Aug',
   },
   {
     id: '33333333-3333-4000-a000-000000000003',
@@ -114,9 +119,10 @@ export const INITIAL_LEDGERS: MonthlyLedger[] = [
     due_date: '2026-08-10',
     status: 'paid',
     amount_paid: 26000,
+    balance_due: 0,
     paid_date: '2026-08-02',
     payment_mode: 'upi',
-    notes: 'Paid via GPay',
+    notes: 'Paid full rent via GPay',
   },
   {
     id: '33333333-3333-4000-a000-000000000004',
@@ -125,7 +131,9 @@ export const INITIAL_LEDGERS: MonthlyLedger[] = [
     month_year: '2026-08',
     amount_due: 7000,
     due_date: '2026-08-10',
-    status: 'pending',
+    status: 'overdue',
     amount_paid: 0,
+    balance_due: 7500, // 7000 + 500 late fee
+    late_fee: 500,
   },
 ];
