@@ -36,6 +36,7 @@ export default function Dashboard() {
   const [ledgers, setLedgers] = useState<MonthlyLedger[]>([]);
   const [landlord, setLandlord] = useState<Landlord | null>(null);
   const [agentSummary, setAgentSummary] = useState<AgentAlertSummary | null>(null);
+  const [loading, setLoading] = useState(true);
 
   // Modals
   const [paywallOpen, setPaywallOpen] = useState(false);
@@ -43,16 +44,35 @@ export default function Dashboard() {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
 
   useEffect(() => {
+    // MANDATORY AUTH GUARD: Redirect unauthenticated first-time visitors to /auth
+    if (!dataService.isAuthenticated()) {
+      router.push('/auth');
+      return;
+    }
     refreshData();
+    setLoading(false);
   }, []);
 
   const refreshData = () => {
+    const l = dataService.getLandlord();
+    if (!l) {
+      router.push('/auth');
+      return;
+    }
+    setLandlord(l);
     setProperties(dataService.getProperties(true));
     setTenants(dataService.getTenants(false));
     setLedgers(dataService.getLedgers());
-    setLandlord(dataService.getLandlord());
     setAgentSummary(agentEngine.auditAndGenerateAlerts());
   };
+
+  if (loading || !landlord) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center text-slate-500 font-bold text-sm">
+        Authenticating session...
+      </div>
+    );
+  }
 
   // Calculation Metrics
   const totalPaid = ledgers.filter(l => l.status === 'paid').reduce((sum, l) => sum + Number(l.amount_paid), 0);
@@ -85,9 +105,9 @@ export default function Dashboard() {
           <div>
             <div className="flex items-center space-x-2">
               <h2 className="text-xl font-extrabold text-slate-900">
-                {landlord?.full_name || 'Sirisha Amma'}'s Complex
+                {landlord.full_name}'s Complex
               </h2>
-              {landlord?.is_pro_member && (
+              {landlord.is_pro_member && (
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300">
                   PRO
                 </span>
@@ -190,7 +210,7 @@ export default function Dashboard() {
         <ChevronRight className="w-5 h-5" />
       </Link>
 
-      {/* Active Shop Units List */}
+      {/* Active Shop Units List / Clean Empty State */}
       <div className="space-y-3 pt-1">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -201,48 +221,65 @@ export default function Dashboard() {
           </Link>
         </div>
 
-        <div className="space-y-2.5">
-          {tenants.map((t) => {
-            const ledger = ledgers.find(l => l.tenant_id === t.id && l.month_year === '2026-08');
-            const balance = ledger?.balance_due !== undefined ? ledger.balance_due : t.base_rent;
-            const isPaid = ledger?.status === 'paid';
-            const isPartial = ledger?.status === 'partial';
-            const isOverdue = ledger?.status === 'overdue';
+        {tenants.length === 0 ? (
+          <div className="glass-card rounded-3xl p-8 text-center bg-white border border-slate-200 space-y-3">
+            <Building2 className="w-12 h-12 text-blue-600 mx-auto" />
+            <h4 className="text-lg font-bold text-slate-900">No Shops or Properties Added Yet</h4>
+            <p className="text-xs text-slate-600 font-medium max-w-xs mx-auto">
+              Start building your portfolio! Click <strong>"10-Sec Quick Add"</strong> or <strong>"Add New Property"</strong> to onboard your first shop and tenant.
+            </p>
+            <button
+              onClick={() => setQuickAddOpen(true)}
+              className="px-5 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm shadow-md inline-flex items-center gap-2 min-h-[48px]"
+            >
+              <PlusCircle className="w-5 h-5" />
+              <span>Add Your First Shop (30 Secs)</span>
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {tenants.map((t) => {
+              const ledger = ledgers.find(l => l.tenant_id === t.id && l.month_year === '2026-08');
+              const balance = ledger?.balance_due !== undefined ? ledger.balance_due : t.base_rent;
+              const isPaid = ledger?.status === 'paid';
+              const isPartial = ledger?.status === 'partial';
+              const isOverdue = ledger?.status === 'overdue';
 
-            return (
-              <div key={t.id} className="glass-card glass-card-hover rounded-2xl p-4 flex items-center justify-between bg-white">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-blue-600 font-bold">
-                    <Store className="w-5 h-5" />
+              return (
+                <div key={t.id} className="glass-card glass-card-hover rounded-2xl p-4 flex items-center justify-between bg-white">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-blue-600 font-bold">
+                      <Store className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-base font-bold text-slate-900">{t.full_name}</h4>
+                      <p className="text-xs text-slate-600 font-semibold">{t.unit_no} • ₹{t.base_rent}/mo</p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-base font-bold text-slate-900">{t.full_name}</h4>
-                    <p className="text-xs text-slate-600 font-semibold">{t.unit_no} • ₹{t.base_rent}/mo</p>
+
+                  <div className="text-right">
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider ${
+                        isPaid
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : isPartial
+                          ? 'bg-blue-100 text-blue-800'
+                          : isOverdue
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
+                      {isPaid ? 'Paid' : isPartial ? 'Partial' : isOverdue ? 'Overdue' : 'Pending'}
+                    </span>
+                    <span className="text-xs font-extrabold text-slate-900 block mt-1">
+                      {isPaid ? '₹0 Due' : `₹${balance.toLocaleString('en-IN')} Due`}
+                    </span>
                   </div>
                 </div>
-
-                <div className="text-right">
-                  <span
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase tracking-wider ${
-                      isPaid
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : isPartial
-                        ? 'bg-blue-100 text-blue-800'
-                        : isOverdue
-                        ? 'bg-red-100 text-red-800'
-                        : 'bg-amber-100 text-amber-800'
-                    }`}
-                  >
-                    {isPaid ? 'Paid' : isPartial ? 'Partial' : isOverdue ? 'Overdue' : 'Pending'}
-                  </span>
-                  <span className="text-xs font-extrabold text-slate-900 block mt-1">
-                    {isPaid ? '₹0 Due' : `₹${balance.toLocaleString('en-IN')} Due`}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Trust & Privacy Manifesto Footer */}

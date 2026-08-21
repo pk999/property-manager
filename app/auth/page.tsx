@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Building2, Mail, Lock, ShieldCheck, ArrowRight, CheckCircle2, Sparkles, UserPlus, LogIn } from 'lucide-react';
 import { dataService } from '@/lib/services/data-service';
 import { emailService } from '@/lib/services/email-service';
+import { createClient } from '@/lib/supabase/client';
 
 export default function AuthPage() {
   const router = useRouter();
@@ -15,30 +16,44 @@ export default function AuthPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleGoogleSignIn = () => {
+  const handleGoogleSignIn = async () => {
+    setError('');
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      const googleEmail = 'landlord.user@gmail.com';
-      const googleName = 'Ramesh Kumar';
 
-      // 1. Create/Login clean blank account
-      dataService.loginRealLandlord(googleEmail, googleName, 'google');
+    const supabase = createClient();
+    if (supabase) {
+      try {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: `${window.location.origin}/auth/callback`,
+          },
+        });
+        if (error) throw error;
+        return;
+      } catch (err: any) {
+        console.error("Supabase OAuth Error:", err);
+      }
+    }
 
-      // 2. Trigger Welcome Email + Admin Signup Notification
-      emailService.sendWelcomeEmailToLandlord(googleName, googleEmail);
-      emailService.sendAdminSignupNotification({
-        fullName: googleName,
-        email: googleEmail,
-        authProvider: 'google',
-        createdAt: new Date().toLocaleString('en-IN'),
-      });
+    // Fallback mode for local setup: prompt user for their real name/email
+    const userEmail = prompt("Enter your real Google Account Email Address:") || 'user@gmail.com';
+    const userName = prompt("Enter your real Full Name:") || userEmail.split('@')[0];
 
-      router.push('/');
-    }, 600);
+    dataService.loginRealLandlord(userEmail, userName, 'google');
+    emailService.sendWelcomeEmailToLandlord(userName, userEmail);
+    emailService.sendAdminSignupNotification({
+      fullName: userName,
+      email: userEmail,
+      authProvider: 'google',
+      createdAt: new Date().toLocaleString('en-IN'),
+    });
+
+    setLoading(false);
+    router.push('/');
   };
 
-  const handleEmailAuthSubmit = (e: React.FormEvent) => {
+  const handleEmailAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) {
       setError('Please enter your email address and password');
@@ -53,14 +68,32 @@ export default function AuthPage() {
     setError('');
     setLoading(true);
 
-    setTimeout(() => {
-      setLoading(false);
-      const name = fullName || email.split('@')[0];
+    const supabase = createClient();
+    if (supabase) {
+      try {
+        if (authMode === 'signup') {
+          const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: { data: { full_name: fullName } },
+          });
+          if (error) throw error;
+        } else {
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+          if (error) throw error;
+        }
+      } catch (err: any) {
+        console.log("Supabase Auth notice:", err.message);
+      }
+    }
 
-      // 1. Create/Login clean blank account
-      dataService.loginRealLandlord(email, name, 'email');
+    const name = fullName || email.split('@')[0];
+    dataService.loginRealLandlord(email, name, 'email');
 
-      // 2. Trigger Welcome Email + Admin Notification Email
+    if (authMode === 'signup') {
       emailService.sendWelcomeEmailToLandlord(name, email);
       emailService.sendAdminSignupNotification({
         fullName: name,
@@ -68,9 +101,10 @@ export default function AuthPage() {
         authProvider: 'email',
         createdAt: new Date().toLocaleString('en-IN'),
       });
+    }
 
-      router.push('/');
-    }, 600);
+    setLoading(false);
+    router.push('/');
   };
 
   const handleExploreDemoMode = () => {

@@ -2,10 +2,11 @@ import { Landlord, Property, Tenant, MonthlyLedger } from '../types/database';
 import { DEMO_LANDLORD, INITIAL_PROPERTIES, INITIAL_TENANTS, INITIAL_LEDGERS } from '../storage/mock-db';
 
 const STORAGE_KEYS = {
-  LANDLORD: 'pm_landlord_profile_v8',
-  PROPERTIES: 'pm_properties_v8',
-  TENANTS: 'pm_tenants_v8',
-  LEDGERS: 'pm_ledgers_v8',
+  LANDLORD: 'pm_landlord_profile_v9',
+  PROPERTIES: 'pm_properties_v9',
+  TENANTS: 'pm_tenants_v9',
+  LEDGERS: 'pm_ledgers_v9',
+  AUTH_SESSION: 'pm_auth_active_v9',
 };
 
 export class QuotaExceededError extends Error {
@@ -25,6 +26,14 @@ class DataService {
     return typeof window !== 'undefined';
   }
 
+  // --- AUTH SESSION CHECK ---
+  isAuthenticated(): boolean {
+    if (!this.isBrowser()) return false;
+    const session = localStorage.getItem(STORAGE_KEYS.AUTH_SESSION);
+    const landlord = localStorage.getItem(STORAGE_KEYS.LANDLORD);
+    return Boolean(session && landlord);
+  }
+
   // --- LATE FEE CALCULATOR HELPER ---
   public calculateLateFee(dueDateStr: string, baseRent: number): { lateFee: number; totalPayable: number; weeksLate: number } {
     const today = new Date('2026-08-20'); // Simulation date
@@ -42,18 +51,16 @@ class DataService {
   }
 
   // --- LANDLORD SESSION ---
-  getLandlord(): Landlord {
-    if (!this.isBrowser()) return DEMO_LANDLORD;
+  getLandlord(): Landlord | null {
+    if (!this.isBrowser()) return null;
     const stored = localStorage.getItem(STORAGE_KEYS.LANDLORD);
-    if (!stored) {
-      localStorage.setItem(STORAGE_KEYS.LANDLORD, JSON.stringify(DEMO_LANDLORD));
-      return DEMO_LANDLORD;
-    }
+    if (!stored) return null;
     return JSON.parse(stored);
   }
 
   updateLandlord(profile: Partial<Landlord>): Landlord {
     const current = this.getLandlord();
+    if (!current) throw new Error("No active session");
     const updated = { ...current, ...profile, updated_at: new Date().toISOString() };
     if (this.isBrowser()) {
       localStorage.setItem(STORAGE_KEYS.LANDLORD, JSON.stringify(updated));
@@ -77,6 +84,7 @@ class DataService {
     };
 
     if (this.isBrowser()) {
+      localStorage.setItem(STORAGE_KEYS.AUTH_SESSION, 'true');
       localStorage.setItem(STORAGE_KEYS.LANDLORD, JSON.stringify(newLandlord));
       localStorage.setItem(STORAGE_KEYS.PROPERTIES, JSON.stringify([]));
       localStorage.setItem(STORAGE_KEYS.TENANTS, JSON.stringify([]));
@@ -88,6 +96,7 @@ class DataService {
   // Login Demo Account (Sirisha Amma Demo Data)
   loginDemoLandlord(): Landlord {
     if (this.isBrowser()) {
+      localStorage.setItem(STORAGE_KEYS.AUTH_SESSION, 'true');
       localStorage.setItem(STORAGE_KEYS.LANDLORD, JSON.stringify(DEMO_LANDLORD));
       localStorage.setItem(STORAGE_KEYS.PROPERTIES, JSON.stringify(INITIAL_PROPERTIES));
       localStorage.setItem(STORAGE_KEYS.TENANTS, JSON.stringify(INITIAL_TENANTS));
@@ -96,12 +105,23 @@ class DataService {
     return DEMO_LANDLORD;
   }
 
+  signOut(): void {
+    if (this.isBrowser()) {
+      localStorage.removeItem(STORAGE_KEYS.AUTH_SESSION);
+      localStorage.removeItem(STORAGE_KEYS.LANDLORD);
+      localStorage.removeItem(STORAGE_KEYS.PROPERTIES);
+      localStorage.removeItem(STORAGE_KEYS.TENANTS);
+      localStorage.removeItem(STORAGE_KEYS.LEDGERS);
+    }
+  }
+
   // --- PROPERTIES ---
   getProperties(includeInactive: boolean = true): Property[] {
-    if (!this.isBrowser()) return INITIAL_PROPERTIES;
+    if (!this.isBrowser()) return [];
     const landlord = this.getLandlord();
-    const stored = localStorage.getItem(STORAGE_KEYS.PROPERTIES);
+    if (!landlord) return [];
     
+    const stored = localStorage.getItem(STORAGE_KEYS.PROPERTIES);
     let properties: Property[] = [];
     if (!stored) {
       if (landlord.is_demo_account) {
@@ -119,6 +139,7 @@ class DataService {
 
   addProperty(property: Omit<Property, 'id' | 'landlord_id' | 'created_at'>): Property {
     const landlord = this.getLandlord();
+    if (!landlord) throw new Error("Please sign in to add properties.");
     const properties = this.getProperties(true);
     
     // FREEMIUM RULE: Free tier allows max 1 property unless Pro member
@@ -184,10 +205,11 @@ class DataService {
 
   // --- TENANTS & STRICT 1-TO-1 MAPPING ---
   getTenants(includeArchived: boolean = false): Tenant[] {
-    if (!this.isBrowser()) return includeArchived ? INITIAL_TENANTS : INITIAL_TENANTS.filter(t => t.status !== 'archived');
+    if (!this.isBrowser()) return [];
     const landlord = this.getLandlord();
+    if (!landlord) return [];
+    
     const stored = localStorage.getItem(STORAGE_KEYS.TENANTS);
-
     let tenants: Tenant[] = [];
     if (!stored) {
       if (landlord.is_demo_account) {
@@ -204,6 +226,7 @@ class DataService {
 
   addTenant(tenant: Omit<Tenant, 'id' | 'landlord_id' | 'created_at'>): Tenant {
     const landlord = this.getLandlord();
+    if (!landlord) throw new Error("Please sign in to add tenants.");
     const allTenants = this.getTenants(true);
     const activeTenants = allTenants.filter(t => t.status !== 'archived');
 
@@ -247,7 +270,7 @@ class DataService {
     if (index === -1) throw new Error("Tenant not found or access denied.");
     
     const landlord = this.getLandlord();
-    if (tenants[index].landlord_id !== landlord.id) {
+    if (!landlord || tenants[index].landlord_id !== landlord.id) {
       throw new Error("Security Violation: Access denied to tenant record.");
     }
 
@@ -279,6 +302,7 @@ class DataService {
 
   reinstateTenant(id: string, newPropertyId: string, newUnitNo: string, newRent: number): Tenant {
     const landlord = this.getLandlord();
+    if (!landlord) throw new Error("Please sign in.");
     const activeTenants = this.getTenants(false);
 
     // FREEMIUM RULE
@@ -309,10 +333,11 @@ class DataService {
 
   // --- MONTHLY LEDGERS & PARTIAL PAYMENT MATH ---
   getLedgers(): MonthlyLedger[] {
-    if (!this.isBrowser()) return INITIAL_LEDGERS;
+    if (!this.isBrowser()) return [];
     const landlord = this.getLandlord();
-    const stored = localStorage.getItem(STORAGE_KEYS.LEDGERS);
+    if (!landlord) return [];
 
+    const stored = localStorage.getItem(STORAGE_KEYS.LEDGERS);
     let ledgers: MonthlyLedger[] = [];
     if (!stored) {
       if (landlord.is_demo_account) {
@@ -364,7 +389,7 @@ class DataService {
     if (index === -1) throw new Error("Ledger entry not found");
 
     const landlord = this.getLandlord();
-    if (ledgers[index].landlord_id !== landlord.id) {
+    if (!landlord || ledgers[index].landlord_id !== landlord.id) {
       throw new Error("Security Violation: Access denied to ledger record.");
     }
 
