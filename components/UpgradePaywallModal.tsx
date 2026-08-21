@@ -14,7 +14,7 @@ export default function UpgradePaywallModal({ isOpen, onClose, reason }: Upgrade
   if (!isOpen) return null;
 
   const landlord = dataService.getLandlord();
-  const upiId = landlord.upi_id || 'sirisha.amma@upi';
+  const upiId = landlord?.upi_id || 'sirisha.amma@upi';
   const upiCheckoutUrl = `upi://pay?pa=${encodeURIComponent(upiId)}&am=999&pn=${encodeURIComponent('PropertyManager Pro')}&cu=INR`;
 
   const handleUpgradeViaUPI = () => {

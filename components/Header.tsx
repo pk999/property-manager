@@ -17,7 +17,7 @@ export default function Header() {
   useEffect(() => {
     const l = dataService.getLandlord();
     setLandlord(l);
-    setUpiInput(l.upi_id || 'sirisha.amma@upi');
+    setUpiInput(l?.upi_id || 'sirisha.amma@upi');
   }, []);
 
   const handleSaveUpi = (e: React.FormEvent) => {
@@ -31,6 +31,7 @@ export default function Header() {
 
   const handleSignOut = () => {
     setMenuOpen(false);
+    dataService.signOut();
     router.push('/auth');
   };
 
