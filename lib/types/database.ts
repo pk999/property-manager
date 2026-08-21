@@ -10,10 +10,13 @@ export interface Landlord {
   id: string;
   auth_user_id: string;
   full_name: string;
+  email?: string;
   phone_number: string;
   upi_id?: string;
   preferred_language?: 'hi' | 'en' | 'hinglish';
   is_pro_member?: boolean;
+  auth_provider?: 'google' | 'email';
+  is_demo_account?: boolean;
   created_at?: string;
   updated_at?: string;
 }

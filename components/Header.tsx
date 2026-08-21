@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Building2, ShieldCheck, User, Building, FileText, Settings, Sparkles, X, LogOut, Phone } from 'lucide-react';
+import { Building2, ShieldCheck, User, Building, FileText, Settings, Sparkles, X, LogOut, Phone, Database } from 'lucide-react';
 import { dataService } from '@/lib/services/data-service';
 import { Landlord } from '@/lib/types/database';
 
@@ -26,7 +26,7 @@ export default function Header() {
     const updated = dataService.updateLandlord({ upi_id: upiInput });
     setLandlord(updated);
     setShowUpiModal(false);
-    alert("✓ Landlord UPI ID updated successfully!");
+    alert("✓ Landlord Direct UPI ID updated successfully!");
   };
 
   const handleSignOut = () => {
@@ -37,7 +37,7 @@ export default function Header() {
   return (
     <>
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 py-3 shadow-sm">
-        <div className="max-w-lg mx-auto flex items-center justify-between">
+        <div className="w-full max-w-xl mx-auto flex items-center justify-between">
           {/* Brand Logo & Name */}
           <Link href="/" className="flex items-center space-x-3">
             <div className="w-11 h-11 rounded-2xl bg-blue-600 flex items-center justify-center shadow-md shadow-blue-500/20 text-white font-black">
@@ -51,12 +51,12 @@ export default function Header() {
                     PRO
                   </span>
                 ) : (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
-                    FREE (1 Prop)
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    ● DB LIVE
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-600 font-semibold">{landlord?.full_name || 'Sirisha Amma'}</p>
+              <p className="text-xs text-slate-600 font-semibold">{landlord?.full_name || 'Landlord Session'}</p>
             </div>
           </Link>
 
@@ -107,7 +107,7 @@ export default function Header() {
                     className="w-full p-2.5 rounded-xl hover:bg-red-50 text-left flex items-center space-x-2 text-red-600 font-bold"
                   >
                     <LogOut className="w-4 h-4 text-red-600" />
-                    <span>Sign Out / Switch Number</span>
+                    <span>Sign Out / Switch Account</span>
                   </button>
                 </div>
               </div>

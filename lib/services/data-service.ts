@@ -2,10 +2,10 @@ import { Landlord, Property, Tenant, MonthlyLedger } from '../types/database';
 import { DEMO_LANDLORD, INITIAL_PROPERTIES, INITIAL_TENANTS, INITIAL_LEDGERS } from '../storage/mock-db';
 
 const STORAGE_KEYS = {
-  LANDLORD: 'pm_landlord_profile_v7',
-  PROPERTIES: 'pm_properties_v7',
-  TENANTS: 'pm_tenants_v7',
-  LEDGERS: 'pm_ledgers_v7',
+  LANDLORD: 'pm_landlord_profile_v8',
+  PROPERTIES: 'pm_properties_v8',
+  TENANTS: 'pm_tenants_v8',
+  LEDGERS: 'pm_ledgers_v8',
 };
 
 export class QuotaExceededError extends Error {
@@ -41,7 +41,7 @@ class DataService {
     return { lateFee: 0, totalPayable: baseRent, weeksLate: 0 };
   }
 
-  // --- LANDLORD ---
+  // --- LANDLORD SESSION ---
   getLandlord(): Landlord {
     if (!this.isBrowser()) return DEMO_LANDLORD;
     const stored = localStorage.getItem(STORAGE_KEYS.LANDLORD);
@@ -61,17 +61,59 @@ class DataService {
     return updated;
   }
 
+  // Login Real User (Clean Blank State - No Demo Data)
+  loginRealLandlord(email: string, fullName: string, authProvider: 'google' | 'email'): Landlord {
+    const newLandlord: Landlord = {
+      id: crypto.randomUUID(),
+      auth_user_id: crypto.randomUUID(),
+      full_name: fullName,
+      email,
+      phone_number: '',
+      upi_id: '',
+      is_pro_member: false,
+      auth_provider: authProvider,
+      is_demo_account: false,
+      created_at: new Date().toISOString(),
+    };
+
+    if (this.isBrowser()) {
+      localStorage.setItem(STORAGE_KEYS.LANDLORD, JSON.stringify(newLandlord));
+      localStorage.setItem(STORAGE_KEYS.PROPERTIES, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.TENANTS, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.LEDGERS, JSON.stringify([]));
+    }
+    return newLandlord;
+  }
+
+  // Login Demo Account (Sirisha Amma Demo Data)
+  loginDemoLandlord(): Landlord {
+    if (this.isBrowser()) {
+      localStorage.setItem(STORAGE_KEYS.LANDLORD, JSON.stringify(DEMO_LANDLORD));
+      localStorage.setItem(STORAGE_KEYS.PROPERTIES, JSON.stringify(INITIAL_PROPERTIES));
+      localStorage.setItem(STORAGE_KEYS.TENANTS, JSON.stringify(INITIAL_TENANTS));
+      localStorage.setItem(STORAGE_KEYS.LEDGERS, JSON.stringify(INITIAL_LEDGERS));
+    }
+    return DEMO_LANDLORD;
+  }
+
   // --- PROPERTIES ---
   getProperties(includeInactive: boolean = true): Property[] {
     if (!this.isBrowser()) return INITIAL_PROPERTIES;
+    const landlord = this.getLandlord();
     const stored = localStorage.getItem(STORAGE_KEYS.PROPERTIES);
+    
     let properties: Property[] = [];
     if (!stored) {
-      properties = INITIAL_PROPERTIES;
-      localStorage.setItem(STORAGE_KEYS.PROPERTIES, JSON.stringify(properties));
+      if (landlord.is_demo_account) {
+        properties = INITIAL_PROPERTIES;
+        localStorage.setItem(STORAGE_KEYS.PROPERTIES, JSON.stringify(properties));
+      } else {
+        properties = [];
+      }
     } else {
       properties = JSON.parse(stored);
     }
+
     return includeInactive ? properties : properties.filter(p => p.status !== 'inactive');
   }
 
@@ -79,10 +121,10 @@ class DataService {
     const landlord = this.getLandlord();
     const properties = this.getProperties(true);
     
-    // "CHAI" FREEMIUM RULE: Free tier allows max 1 property (up to 4 units) unless Pro member
+    // FREEMIUM RULE: Free tier allows max 1 property unless Pro member
     if (!landlord.is_pro_member && properties.length >= 1) {
       throw new QuotaExceededError(
-        "Less than what you spend on your morning Chai. For just ₹999/year, unlock unlimited properties & full automation!",
+        "Free tier includes 1 property (up to 4 units). Upgrade to PropertyManager Pro for ₹999/year for unlimited properties!",
         'property_limit',
         1
       );
@@ -143,11 +185,17 @@ class DataService {
   // --- TENANTS & STRICT 1-TO-1 MAPPING ---
   getTenants(includeArchived: boolean = false): Tenant[] {
     if (!this.isBrowser()) return includeArchived ? INITIAL_TENANTS : INITIAL_TENANTS.filter(t => t.status !== 'archived');
+    const landlord = this.getLandlord();
     const stored = localStorage.getItem(STORAGE_KEYS.TENANTS);
+
     let tenants: Tenant[] = [];
     if (!stored) {
-      tenants = INITIAL_TENANTS;
-      localStorage.setItem(STORAGE_KEYS.TENANTS, JSON.stringify(tenants));
+      if (landlord.is_demo_account) {
+        tenants = INITIAL_TENANTS;
+        localStorage.setItem(STORAGE_KEYS.TENANTS, JSON.stringify(tenants));
+      } else {
+        tenants = [];
+      }
     } else {
       tenants = JSON.parse(stored);
     }
@@ -159,16 +207,16 @@ class DataService {
     const allTenants = this.getTenants(true);
     const activeTenants = allTenants.filter(t => t.status !== 'archived');
 
-    // 1. "CHAI" FREEMIUM RULE: Free tier allows max 4 active units total
+    // FREEMIUM RULE: Free tier allows max 4 active units total
     if (!landlord.is_pro_member && activeTenants.length >= 4) {
       throw new QuotaExceededError(
-        "Less than what you spend on your morning Chai. For just ₹999/year, unlock unlimited units & automated WhatsApp reminders!",
+        "Free tier is limited to 4 units total. Upgrade to PropertyManager Pro for ₹999/year for unlimited units!",
         'unit_limit',
         4
       );
     }
 
-    // 2. STRICT 1-TO-1 UNIT MAPPING: Prevent stacking multiple tenants under the same property unit
+    // STRICT 1-TO-1 UNIT MAPPING: Prevent stacking multiple tenants under the same property unit
     const existingUnitTenant = activeTenants.find(
       t => t.property_id === tenant.property_id && t.unit_no.toLowerCase().trim() === tenant.unit_no.toLowerCase().trim()
     );
@@ -233,7 +281,7 @@ class DataService {
     const landlord = this.getLandlord();
     const activeTenants = this.getTenants(false);
 
-    // "CHAI" FREEMIUM RULE
+    // FREEMIUM RULE
     if (!landlord.is_pro_member && activeTenants.length >= 4) {
       throw new QuotaExceededError(
         "Cannot reinstate tenant. Free tier is limited to 4 units total. Upgrade to Pro for ₹999/year!",
@@ -262,23 +310,21 @@ class DataService {
   // --- MONTHLY LEDGERS & PARTIAL PAYMENT MATH ---
   getLedgers(): MonthlyLedger[] {
     if (!this.isBrowser()) return INITIAL_LEDGERS;
+    const landlord = this.getLandlord();
     const stored = localStorage.getItem(STORAGE_KEYS.LEDGERS);
+
+    let ledgers: MonthlyLedger[] = [];
     if (!stored) {
-      const initialized = INITIAL_LEDGERS.map(l => {
-        const { lateFee } = this.calculateLateFee(l.due_date, l.amount_due);
-        const total = l.amount_due + lateFee;
-        const paid = l.amount_paid || 0;
-        const balance = Math.max(0, total - paid);
-        let status = l.status;
-        if (paid >= total) status = 'paid';
-        else if (paid > 0) status = 'partial';
-        return { ...l, late_fee: lateFee, total_payable: total, amount_paid: paid, balance_due: balance, status };
-      });
-      localStorage.setItem(STORAGE_KEYS.LEDGERS, JSON.stringify(initialized));
-      return initialized;
+      if (landlord.is_demo_account) {
+        ledgers = INITIAL_LEDGERS;
+        localStorage.setItem(STORAGE_KEYS.LEDGERS, JSON.stringify(ledgers));
+      } else {
+        ledgers = [];
+      }
+    } else {
+      ledgers = JSON.parse(stored);
     }
 
-    const ledgers: MonthlyLedger[] = JSON.parse(stored);
     return ledgers.map(l => {
       const { lateFee } = this.calculateLateFee(l.due_date, l.amount_due);
       const total = l.amount_due + (l.status === 'paid' ? (l.late_fee || 0) : lateFee);

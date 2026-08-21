@@ -11,12 +11,15 @@ export default function BottomNav() {
   const navItems = [
     { label: 'Overview', href: '/', icon: LayoutDashboard },
     { label: 'Tenants & Ledgers', href: '/tenants', icon: Users },
-    { label: 'WhatsApp Reminders', href: '/reminders', icon: MessageCircle },
+    { label: 'WhatsApp Engine', href: '/reminders', icon: MessageCircle },
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-t border-slate-200 px-4 py-2 shadow-lg">
-      <div className="max-w-lg mx-auto flex items-center justify-around h-14">
+    <nav 
+      className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-t border-slate-200 px-4 pt-2 shadow-lg"
+      style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}
+    >
+      <div className="w-full max-w-xl mx-auto flex items-center justify-around min-h-[52px]">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
@@ -24,7 +27,7 @@ export default function BottomNav() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center justify-center py-2 px-3 rounded-2xl transition-all duration-200 min-h-[48px] min-w-[90px] ${
+              className={`flex flex-col items-center justify-center py-1.5 px-3 rounded-2xl transition-all duration-200 min-h-[48px] min-w-[90px] ${
                 isActive
                   ? 'text-blue-700 bg-blue-50 font-bold scale-105'
                   : 'text-slate-600 hover:text-slate-900 font-semibold'
